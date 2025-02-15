@@ -28,7 +28,7 @@ def _android_ndk_repository_impl(ctx):
     download_ndk = ctx.attr.download_ndk_version != None
     ndk_path = ""
     if not download_ndk:
-        ndk_path = ctx.attr.path or ctx.os.environ.get("ANDROID_NDK_HOME", None)
+        ndk_path = ctx.attr.path or ctx.getenv("ANDROID_NDK_HOME", None)
         if not ndk_path:
             fail("Either download_ndk_version must be set or a local NDK must " +
                  "be specified by path attribute or ANDROID_NDK_HOME environment")
@@ -158,6 +158,5 @@ android_ndk_repository = repository_rule(
         "_template_ndk_clang": attr.label(default = ":BUILD.ndk_clang.tpl", allow_single_file = True),
         "_template_ndk_sysroot": attr.label(default = ":BUILD.ndk_sysroot.tpl", allow_single_file = True),
     },
-    local = True,
     implementation = _android_ndk_repository_impl,
 )
