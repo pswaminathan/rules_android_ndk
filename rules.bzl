@@ -14,6 +14,8 @@
 
 """A repository rule for integrating the Android NDK."""
 
+load("versions.bzl", "versions")
+
 def _android_ndk_repository_impl(ctx):
     """Install the Android NDK files.
 
@@ -23,21 +25,41 @@ def _android_ndk_repository_impl(ctx):
     Returns:
         A final dict of configuration attributes and values.
     """
-    ndk_path = ctx.attr.path or ctx.getenv("ANDROID_NDK_HOME", None)
-    if not ndk_path:
-        fail("Either the ANDROID_NDK_HOME environment variable or the " +
-             "path attribute of android_ndk_repository must be set.")
+    download_ndk = ctx.attr.download_ndk_version != None
+    ndk_path = ""
+    if not download_ndk:
+        ndk_path = ctx.attr.path or ctx.getenv("ANDROID_NDK_HOME", None)
+        if not ndk_path:
+            fail("Either download_ndk_version must be set or a local NDK must " +
+                 "be specified by path attribute or ANDROID_NDK_HOME environment")
+
+    os_name = ctx.os.name
+    if os_name.startswith("windows"):
+        os_name = "windows"
+
+    if download_ndk:
+        print("\n\033[1;33mWARNING:\033[0m by setting download_ndk_version, you are agreeing " +
+              "to the NDK terms and conditions. You can view these at " +
+              "https://developer.android.com/studio/terms")
+        version = ctx.attr.download_ndk_version
+        cfg = versions[version][os_name]
+        ctx.download_and_extract(
+            url = cfg["url"],
+            integrity = cfg["integrity"],
+            stripPrefix = cfg["prefix"],  # n.b. renamed to strip_prefix in 8.x, but this remains for compatibility
+        )
+
     if ndk_path.startswith("$WORKSPACE_ROOT"):
         ndk_path = str(ctx.workspace_root) + ndk_path.removeprefix("$WORKSPACE_ROOT")
 
     is_windows = False
     executable_extension = ""
-    if ctx.os.name == "linux":
+    if os_name == "linux":
         clang_directory = "toolchains/llvm/prebuilt/linux-x86_64"
-    elif ctx.os.name == "mac os x":
+    elif os_name == "mac os x":
         # Note: darwin-x86_64 does indeed contain fat binaries with arm64 slices, too.
         clang_directory = "toolchains/llvm/prebuilt/darwin-x86_64"
-    elif ctx.os.name.startswith("windows"):
+    elif os_name == "windows":
         clang_directory = "toolchains/llvm/prebuilt/windows-x86_64"
         is_windows = True
         executable_extension = ".exe"
@@ -46,7 +68,8 @@ def _android_ndk_repository_impl(ctx):
 
     sysroot_directory = "%s/sysroot" % clang_directory
 
-    _create_symlinks(ctx, ndk_path, clang_directory, sysroot_directory)
+    if not download_ndk:
+        _create_symlinks(ctx, ndk_path, clang_directory, sysroot_directory)
 
     api_level = ctx.attr.api_level or 31
 
@@ -102,7 +125,7 @@ def _android_ndk_repository_impl(ctx):
     )
 
 # Manually create a partial symlink tree of the NDK to avoid creating BUILD
-# files in the real NDK directory.
+# files in the real NDK directory, when using a system-installed NDK.
 def _create_symlinks(ctx, ndk_path, clang_directory, sysroot_directory):
     # Path needs to end in "/" for replace() below to work
     if not ndk_path.endswith("/"):
@@ -128,6 +151,7 @@ android_ndk_repository = repository_rule(
     attrs = {
         "path": attr.string(),
         "api_level": attr.int(),
+        "download_ndk_version": attr.string(),
         "_build": attr.label(default = ":BUILD", allow_single_file = True),
         "_template_ndk_root": attr.label(default = ":BUILD.ndk_root.tpl", allow_single_file = True),
         "_template_target_systems": attr.label(default = ":target_systems.bzl.tpl", allow_single_file = True),
