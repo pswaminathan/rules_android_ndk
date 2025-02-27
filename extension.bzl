@@ -30,6 +30,7 @@ def _android_ndk_repository_extension_impl(module_ctx):
     if module.tags.configure:
         kwargs["api_level"] = module.tags.configure[0].api_level
         kwargs["path"] = module.tags.configure[0].path
+        kwargs["download_ndk_version"] = module.tags.configure[0].download_ndk_version
 
     android_ndk_repository(
         name = "androidndk",
@@ -42,6 +43,7 @@ android_ndk_repository_extension = module_extension(
         "configure": tag_class(attrs = {
             "path": attr.string(),
             "api_level": attr.int(),
+            "download_ndk_version": attr.string(),
         }),
     },
 )
