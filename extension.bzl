@@ -27,14 +27,22 @@ def _android_ndk_repository_extension_impl(module_ctx):
         module = module_ctx.modules[0]
 
     kwargs = {}
+    dl = module.tags.configure[0].download_ndk_version
     if module.tags.configure:
         kwargs["api_level"] = module.tags.configure[0].api_level
         kwargs["path"] = module.tags.configure[0].path
-        kwargs["download_ndk_version"] = module.tags.configure[0].download_ndk_version
+        kwargs["download_ndk_version"] = dl
 
     android_ndk_repository(
         name = "androidndk",
         **kwargs
+    )
+
+    reproducible = dl != None and dl != ""
+    return module_ctx.extension_metadata(
+        root_module_direct_deps = ["androidndk"],
+        root_module_direct_dev_deps = [],
+        reproducible = reproducible,
     )
 
 android_ndk_repository_extension = module_extension(
